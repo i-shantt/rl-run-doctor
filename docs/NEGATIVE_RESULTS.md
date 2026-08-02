@@ -30,6 +30,40 @@ single decision step did not dent it, because the cue is in the observation and 
 trivially learnable. `chain_rho` is therefore expected to be a dead cell for pathology purposes,
 and is retained only for its Phase-3 role.
 
+### Outcome: the prediction was wrong, in the direction the sibling project warned about
+
+**3 of 25 pathology-cells** reliably degraded held-out performance across both smoke seeds —
+12%, against a predicted 30–60%. All three are DQN on CartPole: `P5_no_target_network`,
+`P6_stale_target`, `P8_plasticity_loss`. Four more degraded on one seed of two.
+
+That is exactly the pre-registered falsifier's boundary: "fewer than 3 surviving cells and there is
+no multi-class attribution problem left". Three is not below the line, but it is on it.
+
+Three separate things went wrong, and only one of them was the hypothesis:
+
+1. **The failure rule was broken and inflated the first count to 11/31.** Comparing with `<=`
+   against a floor taken from saturated controls meant a run scoring *identically to the control*
+   was labelled a failure. `chain_rho/ppo` controls both scored 1.000, so the floor was 1.000, and
+   four pathologies that also scored 1.000 were reported as reliable failure vehicles. Fixed by
+   requiring a strict fall below the floor by a margin proportional to the control mean.
+
+2. **The gate never implemented its own first question.** It documented "is the control healthy?"
+   and then never checked. `chain_rho/dqn`'s control scored 0.472 against a random policy's 0.483 —
+   it had learned nothing at all, and was still being used to derive a floor that five pathologies
+   were then measured against. Now every cell is compared to a random-policy baseline and marked
+   unusable if it has not beaten it.
+
+3. **The PPO control was under-tuned, so three "pathologies" were upgrades.** On CartPole,
+   `P1_entropy_collapse`, `P2_trust_region_blowup` and `P3_obs_norm_freeze` all *beat* the control
+   (500.0 against 413/272). A sweep confirmed the baseline was simply bad: `lr=3e-3, ent_coef=0.0`
+   reaches 500.0 on 3/3 seeds where the control's `lr=3e-4, ent_coef=0.01` averages 365. If
+   injecting a fault improves the score, the baseline was the fault.
+
+The honest reading of (3) is that CartPole is too easy for the entropy bonus to matter, so entropy
+collapse is not inducible there by removing it. That is an environment-selection result, not a
+detector result, and it belongs to the same family as the sibling project's finding that
+collapse-proneness is task-specific.
+
 ## Phase 1 — corpus
 
 **Prediction.** Healthy control bands will be wide for DQN (measured: 6-seed windowed range

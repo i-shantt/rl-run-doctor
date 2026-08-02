@@ -61,6 +61,9 @@ def run_health(path: str | Path, window: int = WINDOW) -> RunHealth:
     )
 
 
+REL_MARGIN = 0.02
+
+
 @dataclass(frozen=True)
 class HealthyBand:
     """The healthy control distribution, from which the failure threshold is derived."""
@@ -68,28 +71,66 @@ class HealthyBand:
     n: int
     mean: float
     std: float
-    lo: float  # 5th percentile of control windowed health
-    threshold: float  # a run at or below this counts as failed
+    lo: float  # q-th percentile of control windowed health
+    margin: float
+    threshold: float  # a run *strictly below* this counts as failed
 
     def failed(self, windowed: float) -> bool:
-        return windowed <= self.threshold
+        return windowed < self.threshold
 
 
-def healthy_band(control_windowed: list[float], q: float = 5.0) -> HealthyBand:
+def healthy_band(
+    control_windowed: list[float], q: float = 5.0, rel_margin: float = REL_MARGIN
+) -> HealthyBand:
     """Derive the failure threshold from controls rather than picking a number.
 
-    The threshold is the `q`-th percentile of control health. A pathology only counts as a failure
-    vehicle if it pushes runs below the range the healthy control already occupies -- which, for a
-    high-variance algorithm like DQN, is a genuinely demanding bar and is meant to be.
+    Two details that are not cosmetic:
+
+    **Strictly below, plus a margin.** With `<=` and no margin, a saturated control makes every
+    run that matches it perfectly count as a failure. Measured here: `chain_rho/ppo` controls both
+    scored 1.000, so the floor was 1.000, and four pathologies that also scored 1.000 were reported
+    as reliable failure vehicles. The margin is a proportion of the control mean, so it scales with
+    whatever the return happens to be measured in.
+
+    **The floor is a percentile of the controls, not their mean.** A pathology has to push a run
+    below the range the healthy control already occupies. For a high-variance algorithm like DQN
+    that is a demanding bar, and it is meant to be -- anything easier is measuring seed noise.
     """
     if len(control_windowed) < 2:
         raise ValueError("need at least 2 control runs to derive a band")
     arr = np.asarray(control_windowed, dtype=np.float64)
     lo = float(np.percentile(arr, q))
+    margin = max(rel_margin * abs(float(arr.mean())), 1e-9)
     return HealthyBand(
         n=len(arr),
         mean=float(arr.mean()),
-        std=float(arr.std(ddof=1)),
+        std=float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
         lo=lo,
-        threshold=lo,
+        margin=margin,
+        threshold=lo - margin,
     )
+
+
+def random_policy_return(env_name: str, env_kwargs: dict, n_episodes: int, seed: int = 0) -> float:
+    """Mean return of a uniform-random policy on the held-out seeds.
+
+    The reference for "is the control actually learning anything". Without it a cell whose control
+    never leaves the floor still produces a floor, and every pathology gets compared against a
+    broken baseline.
+    """
+    from .envs import eval_seeds, make
+
+    rng = np.random.default_rng(seed)
+    env = make(env_name, **env_kwargs)
+    totals = []
+    for s in eval_seeds(n_episodes):
+        obs = env.reset(seed=s)
+        total = 0.0
+        for _ in range(env.max_steps):
+            res = env.step(int(rng.integers(0, env.n_actions)))
+            total += res.reward
+            obs = res.obs
+            if res.terminated or res.truncated:
+                break
+        totals.append(total)
+    return float(np.mean(totals))

@@ -1,0 +1,302 @@
+{
+  "cartpole/dqn": {
+    "control": [
+      209.11666666666667,
+      395.3
+    ],
+    "control_mean": 302.20833333333337,
+    "floor": 203.07250000000002,
+    "margin": 6.044166666666667,
+    "pathologies": {
+      "P10_no_reseed": {
+        "mean_drop_vs_control": 67.00000000000003,
+        "n_below_floor": 0,
+        "values": [
+          257.68333333333334,
+          212.73333333333335
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P5_no_target_network": {
+        "mean_drop_vs_control": 228.17500000000004,
+        "n_below_floor": 2,
+        "values": [
+          61.53333333333333,
+          86.53333333333335
+        ],
+        "verdict": "KEEP"
+      },
+      "P6_stale_target": {
+        "mean_drop_vs_control": 279.37500000000006,
+        "n_below_floor": 2,
+        "values": [
+          24.733333333333334,
+          20.933333333333334
+        ],
+        "verdict": "KEEP"
+      },
+      "P7_replay_staleness": {
+        "mean_drop_vs_control": -120.24166666666662,
+        "n_below_floor": 0,
+        "values": [
+          375.95,
+          468.95
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P8_plasticity_loss": {
+        "mean_drop_vs_control": 204.50000000000003,
+        "n_below_floor": 2,
+        "values": [
+          95.13333333333334,
+          100.28333333333335
+        ],
+        "verdict": "KEEP"
+      },
+      "P9_overestimation": {
+        "mean_drop_vs_control": -4.866666666666617,
+        "n_below_floor": 0,
+        "values": [
+          243.13333333333333,
+          371.01666666666665
+        ],
+        "verdict": "NO EFFECT"
+      }
+    },
+    "random_baseline": 19.35,
+    "usable": true
+  },
+  "cartpole/ppo": {
+    "control": [
+      413.40000000000003,
+      272.01666666666665
+    ],
+    "control_mean": 342.70833333333337,
+    "floor": 265.16249999999997,
+    "margin": 6.854166666666668,
+    "pathologies": {
+      "P10_no_reseed": {
+        "mean_drop_vs_control": -76.20833333333326,
+        "n_below_floor": 0,
+        "values": [
+          500.0,
+          337.8333333333333
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P1_entropy_collapse": {
+        "mean_drop_vs_control": -135.30833333333328,
+        "n_below_floor": 0,
+        "values": [
+          500.0,
+          456.0333333333333
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P2_trust_region_blowup": {
+        "mean_drop_vs_control": -124.42499999999995,
+        "n_below_floor": 0,
+        "values": [
+          500.0,
+          434.26666666666665
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P3_obs_norm_freeze": {
+        "mean_drop_vs_control": -157.29166666666663,
+        "n_below_floor": 0,
+        "values": [
+          500.0,
+          500.0
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P4_reward_scale_drift": {
+        "mean_drop_vs_control": 133.94166666666672,
+        "n_below_floor": 1,
+        "values": [
+          146.33333333333334,
+          271.2
+        ],
+        "verdict": "partial"
+      }
+    },
+    "random_baseline": 19.35,
+    "usable": true
+  },
+  "chain_rho/dqn": {
+    "control": [
+      0.5,
+      0.4444444444444445
+    ],
+    "pathologies": {},
+    "random_baseline": 0.4833333333333333,
+    "reason": "control did not beat a random policy",
+    "usable": false
+  },
+  "chain_rho/ppo": {
+    "control": [
+      1.0,
+      1.0
+    ],
+    "control_mean": 1.0,
+    "floor": 0.98,
+    "margin": 0.02,
+    "pathologies": {
+      "P11_credit_dilution": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          1.0,
+          1.0
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P1_entropy_collapse": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          1.0,
+          1.0
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P2_trust_region_blowup": {
+        "mean_drop_vs_control": 0.05555555555555558,
+        "n_below_floor": 1,
+        "values": [
+          0.888888888888889,
+          1.0
+        ],
+        "verdict": "partial"
+      },
+      "P3_obs_norm_freeze": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          1.0,
+          1.0
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P4_reward_scale_drift": {
+        "mean_drop_vs_control": 0.11111111111111116,
+        "n_below_floor": 1,
+        "values": [
+          1.0,
+          0.7777777777777778
+        ],
+        "verdict": "partial"
+      }
+    },
+    "random_baseline": 0.4833333333333333,
+    "usable": true
+  },
+  "deep_sea/dqn": {
+    "control": [
+      -0.005666666666666667,
+      0.3273333333333333
+    ],
+    "control_mean": 0.16083333333333333,
+    "floor": -0.008883333333333333,
+    "margin": 0.0032166666666666667,
+    "pathologies": {
+      "P5_no_target_network": {
+        "mean_drop_vs_control": -0.32999999999999996,
+        "n_below_floor": 0,
+        "values": [
+          -0.008333333333333333,
+          0.9899999999999999
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P6_stale_target": {
+        "mean_drop_vs_control": 0.16533333333333333,
+        "n_below_floor": 0,
+        "values": [
+          -0.005333333333333333,
+          -0.0036666666666666666
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P7_replay_staleness": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          -0.005666666666666667,
+          0.3273333333333333
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P8_plasticity_loss": {
+        "mean_drop_vs_control": 0.16599999999999998,
+        "n_below_floor": 0,
+        "values": [
+          -0.005666666666666667,
+          -0.004666666666666667
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P9_overestimation": {
+        "mean_drop_vs_control": 0.16583333333333333,
+        "n_below_floor": 0,
+        "values": [
+          -0.005,
+          -0.005
+        ],
+        "verdict": "NO EFFECT"
+      }
+    },
+    "random_baseline": -0.005050000000000001,
+    "usable": true
+  },
+  "deep_sea/ppo": {
+    "control": [
+      0.9899999999999999,
+      0.991
+    ],
+    "control_mean": 0.9904999999999999,
+    "floor": 0.9701899999999999,
+    "margin": 0.019809999999999998,
+    "pathologies": {
+      "P1_entropy_collapse": {
+        "mean_drop_vs_control": 0.4955,
+        "n_below_floor": 1,
+        "values": [
+          0.9899999999999999,
+          0.0
+        ],
+        "verdict": "partial"
+      },
+      "P2_trust_region_blowup": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          0.9899999999999999,
+          0.991
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P3_obs_norm_freeze": {
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "values": [
+          0.9899999999999999,
+          0.991
+        ],
+        "verdict": "NO EFFECT"
+      },
+      "P4_reward_scale_drift": {
+        "mean_drop_vs_control": 0.4955,
+        "n_below_floor": 1,
+        "values": [
+          0.9899999999999999,
+          0.0
+        ],
+        "verdict": "partial"
+      }
+    },
+    "random_baseline": -0.005050000000000001,
+    "usable": true
+  }
+}

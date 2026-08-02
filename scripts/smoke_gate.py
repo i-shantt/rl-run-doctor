@@ -24,8 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from testbed.corpus.runner import RunSpec, run_one
-from testbed.health import healthy_band, run_health
+from testbed.corpus.runner import ENV_DEFAULTS, RunSpec, run_one
+from testbed.health import healthy_band, random_policy_return, run_health
 from testbed.inject.pathologies import applicable
 
 ENVS = ["cartpole", "deep_sea", "chain_rho"]
@@ -47,6 +47,11 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=min(10, mp.cpu_count()))
     ap.add_argument("--envs", nargs="*", default=ENVS)
     ap.add_argument("--algos", nargs="*", default=ALGOS)
+    ap.add_argument(
+        "--report-only",
+        action="store_true",
+        help="re-derive the report from traces already on disk, without re-running anything",
+    )
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -58,12 +63,25 @@ def main() -> None:
             for seed in range(args.seeds):
                 jobs.append((RunSpec(env_name, algo, path.name, seed), str(out_dir)))
 
-    print(f"{len(jobs)} runs across {len(args.envs)}x{len(args.algos)} cells "
-          f"on {args.workers} workers\n")
-    t0 = time.time()
-    with mp.Pool(processes=args.workers) as pool:
-        results = list(pool.imap_unordered(_run, jobs))
-    print(f"all runs finished in {time.time()-t0:.0f}s\n")
+    # Traces are flushed as they are produced, so analysis is always replayable from disk. A bug
+    # in the reporting code costs seconds to fix rather than another full sweep of the grid.
+    if args.report_only:
+        results = []
+        for spec, _ in jobs:
+            p = out_dir / f"{spec.run_id}.jsonl.gz"
+            if not p.exists():
+                print(f"missing trace: {p.name}")
+                continue
+            h = run_health(p)
+            results.append((spec.run_id, h.windowed, h.peak, h.n_evals, 0.0))
+        print(f"re-reporting {len(results)} traces from {out_dir}\n")
+    else:
+        print(f"{len(jobs)} runs across {len(args.envs)}x{len(args.algos)} cells "
+              f"on {args.workers} workers\n")
+        t0 = time.time()
+        with mp.Pool(processes=args.workers) as pool:
+            results = list(pool.imap_unordered(_run, jobs))
+        print(f"all runs finished in {time.time()-t0:.0f}s\n")
 
     by_run = {rid: (w, pk, n, dt) for rid, w, pk, n, dt in results}
 
@@ -77,9 +95,28 @@ def main() -> None:
             for s in range(args.seeds)
         ]
         band = healthy_band(controls, q=0.0)  # with few seeds, use the worst control as the floor
+        rand = random_policy_return(env_name, ENV_DEFAULTS[env_name], n_episodes=20)
 
         print(f"=== {env_name} / {algo} ===")
-        print(f"  control: {np.round(controls,1).tolist()}  -> floor {band.threshold:.1f}")
+        print(f"  control: {np.round(controls,3).tolist()}  random={rand:.3f}  "
+              f"floor={band.threshold:.3f} (margin {band.margin:.3f})")
+
+        # Question 1 of the gate: is there anything here to fall *from*? A control that has not
+        # meaningfully beaten a random policy cannot host a failure label, because every
+        # pathology would be compared against a baseline that never worked.
+        lift = band.mean - rand
+        span = max(abs(rand), abs(band.mean), 1e-9)
+        if lift <= 0.1 * span:
+            print(f"  CONTROL UNHEALTHY: mean {band.mean:.3f} vs random {rand:.3f} "
+                  f"(lift {lift:+.3f}). Cell unusable; all pathologies skipped.\n")
+            report[f"{env_name}/{algo}"] = {
+                "control": controls,
+                "random_baseline": rand,
+                "usable": False,
+                "reason": "control did not beat a random policy",
+                "pathologies": {},
+            }
+            continue
 
         cell: dict[str, dict] = {}
         for p in paths:
@@ -93,9 +130,11 @@ def main() -> None:
                 "partial" if n_failed else "NO EFFECT"
             )
             drop = band.mean - float(np.mean(vals))
+            # str() first: a list has no __format__, and an f-string width spec on one raises.
+            vals_s = str(np.round(vals, 1).tolist())
             print(
-                f"  {p.name:<24} {np.round(vals,1).tolist():<22} "
-                f"drop {drop:+7.1f}  {n_failed}/{args.seeds} below floor  [{verdict}]"
+                f"  {p.name:<24} {vals_s:<24} "
+                f"drop {drop:+8.2f}  {n_failed}/{args.seeds} below floor  [{verdict}]"
             )
             cell[p.name] = {
                 "values": vals,
@@ -105,7 +144,10 @@ def main() -> None:
             }
         report[f"{env_name}/{algo}"] = {
             "control": controls,
+            "random_baseline": rand,
+            "usable": True,
             "floor": band.threshold,
+            "margin": band.margin,
             "control_mean": band.mean,
             "pathologies": cell,
         }
