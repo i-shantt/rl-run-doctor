@@ -30,7 +30,6 @@ from rl_run_doctor.signals import featurize
 from rl_run_doctor.trace import Trace
 from testbed.corpus.runner import RunSpec, run_one
 from testbed.health import healthy_band, run_health
-from testbed.inject.pathologies import BY_NAME
 from testbed.label import label_run
 
 CELLS = [("cartpole", "ppo", ["R1_lr_ramp", "R2_reward_scale_ramp"]),
@@ -91,7 +90,7 @@ def main() -> None:
         list(pool.imap_unordered(_run, jobs))
 
     report: dict[str, dict] = {}
-    for env_name, algo, ramps in CELLS:
+    for env_name, algo, _ramps in CELLS:
         cell = f"{env_name}/{algo}"
         paths = sorted(out_dir.glob(f"{env_name}__{algo}__*.jsonl.gz"))
         controls = [run_health(p).windowed for p in paths if "__P0_control__" in p.name]
