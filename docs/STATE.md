@@ -44,6 +44,24 @@ scored better than the control, because the control was under-tuned.
 Severity sweep: 246 runs, 3 seeds, dose ladders per family, 4 workers. Replaces the binary
 keep/drop verdict with a dose-response curve per mechanism.
 
+## Prior-art check for Phase 3 (pre-registered risk, now cleared)
+
+`arXiv:2607.16999`, *Counterfactual Shapley Credit Assignment* (Li, Kaizhan-Lee, Bareinboim, Jul
+2026), claims phi-values "align precisely to the ground truth causes of task rewards", which
+implies they hold environments with known credit. No code repository is linked from the abstract
+page and the PDF text was not extractable, so this is not fully settled — but the contributions
+differ in shape:
+
+* they propose a **method** (phi-PPO with prioritised trajectory replay) and use ground truth to
+  validate it; this project builds a **testbed and scoring harness** to compare the estimators that
+  existing algorithms already learn from. Their phi-value becomes one more estimator to score.
+* their hard case is **stochasticity** — separating skill from luck. `chain_rho` is deterministic,
+  so it has no luck component at all. That is a genuine limitation to state plainly, and it is also
+  the axis on which the two are complementary rather than competing.
+
+If a phi-value implementation appears, it should be added to the comparison rather than worked
+around.
+
 ## Next, in order
 
 1. Read the dose-response curves; decide which (cell, family, dose) combinations enter the corpus.
