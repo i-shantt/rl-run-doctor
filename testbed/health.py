@@ -80,7 +80,7 @@ class HealthyBand:
 
 
 def healthy_band(
-    control_windowed: list[float], q: float = 5.0, rel_margin: float = REL_MARGIN
+    control_windowed: list[float], q: float = 0.0, rel_margin: float = REL_MARGIN
 ) -> HealthyBand:
     """Derive the failure threshold from controls rather than picking a number.
 
@@ -92,14 +92,25 @@ def healthy_band(
     as reliable failure vehicles. The margin is a proportion of the control mean, so it scales with
     whatever the return happens to be measured in.
 
-    **The floor is a percentile of the controls, not their mean.** A pathology has to push a run
-    below the range the healthy control already occupies. For a high-variance algorithm like DQN
-    that is a demanding bar, and it is meant to be -- anything easier is measuring seed noise.
+    **The floor sits at or below the worst control.** A pathology has to push a run below the
+    range the healthy control already occupies. For a high-variance algorithm like DQN that is a
+    demanding bar, and it is meant to be -- anything easier is measuring seed noise.
+
+    `q` defaults to 0, i.e. the minimum, and the floor is clamped so it can never rise above it.
+    An interpolated quantile on a small sample sits *above* the smallest observation: with the two
+    CartPole DQN controls at 209.1 and 395.3, the 5th percentile is 218.4, so the worse control
+    was being labelled a failure by a band derived from itself. Measured on a 60-run pilot, that
+    put 3 of 10 controls in the failed class.
+
+    A consequence worth stating: no control can be labelled failed, so the false-alarm rate is
+    zero *by construction* at the labelling stage. That is not a claim about the detector. The
+    detector's false-alarm rate is measured separately, on healthy runs, in the lead-time
+    evaluation.
     """
     if len(control_windowed) < 2:
         raise ValueError("need at least 2 control runs to derive a band")
     arr = np.asarray(control_windowed, dtype=np.float64)
-    lo = float(np.percentile(arr, q))
+    lo = min(float(np.percentile(arr, q)), float(arr.min()))
     margin = max(rel_margin * abs(float(arr.mean())), 1e-9)
     return HealthyBand(
         n=len(arr),

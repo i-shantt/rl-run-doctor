@@ -108,3 +108,19 @@ def test_healthy_trailing_window_overrides_a_mid_run_collapse(tmp_path: Path) ->
 def test_band_needs_more_than_one_control() -> None:
     with pytest.raises(ValueError, match="at least 2"):
         healthy_band([1.0])
+
+
+def test_no_control_can_be_failed_by_a_band_derived_from_those_controls() -> None:
+    """Self-consistency. An interpolated quantile on a small sample sits above the smallest
+    observation, so a 5th-percentile floor put the worse of two CartPole DQN controls (209.1
+    against 395.3, floor 218.4) into the failed class. On a 60-run pilot that mislabelled 3 of 10
+    controls, which would have taught the detector that healthy runs are failures."""
+    for controls in ([209.117, 395.3], [1.0, 1.0], [0.99, 0.991], [10.0, 20.0, 30.0, 400.0]):
+        band = healthy_band(controls)
+        for c in controls:
+            assert not band.failed(c), f"control {c} failed against its own band {band}"
+
+
+def test_floor_never_rises_above_the_worst_control() -> None:
+    band = healthy_band([209.117, 395.3], q=50.0)  # even a deliberately silly quantile
+    assert band.threshold <= min(209.117, 395.3)

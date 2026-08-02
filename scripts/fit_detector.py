@@ -42,16 +42,46 @@ def load_corpus(corpus_dir: Path) -> list[dict]:
     return rows
 
 
-def build_xy(rows: list[dict], keys: list[str]) -> tuple[np.ndarray, list[str], list[str]]:
-    feats = [featurize(r["trace"], keys) for r in rows]
+# Fractions of each run used as additional training examples. Two jobs at once: it multiplies a
+# tiny sample (a cell has tens of runs against ~150 features, which saturates a logistic model's
+# probabilities at exactly 1.0 and makes any calibrated alarm threshold unreachable), and it
+# removes the train/score mismatch, since the model is scored on prefixes at deployment.
+TRAIN_FRACS = (0.4, 0.6, 0.8, 1.0)
+
+# Deliberately strong. With this many correlated shape features per signal, a weakly regularised
+# fit is a lookup table that reports 1.00 confidence on everything.
+C_REG = 0.05
+
+
+def _feature_row(feats: dict[str, float], names: list[str]) -> np.ndarray:
+    row = np.zeros(len(names))
+    for j, n in enumerate(names):
+        v = feats.get(n, 0.0)
+        row[j] = v if np.isfinite(v) else 0.0
+    return row
+
+
+def build_xy(
+    rows: list[dict], keys: list[str], fracs: tuple[float, ...] = (1.0,)
+) -> tuple[np.ndarray, list[str], list[str], list[int]]:
+    """Feature matrix over (run, prefix fraction) pairs. Groups are seeds, so a seed never spans
+    train and test even when it contributes several prefixes."""
+    feats: list[dict[str, float]] = []
+    y: list[str] = []
+    groups: list[int] = []
+    for r in rows:
+        t = r["trace"]
+        n_rec = len(t)
+        for f in fracs:
+            n = max(MIN_PREFIX, int(round(f * n_rec)))
+            if n > n_rec:
+                continue
+            feats.append(featurize(t.prefix(n), keys))
+            y.append(r["pathology"])
+            groups.append(r["seed"])
     names = sorted({k for f in feats for k in f})
-    x = np.zeros((len(feats), len(names)))
-    for i, f in enumerate(feats):
-        for j, n in enumerate(names):
-            v = f.get(n, 0.0)
-            x[i, j] = v if np.isfinite(v) else 0.0
-    y = [r["pathology"] for r in rows]
-    return x, names, y
+    x = np.vstack([_feature_row(f, names) for f in feats])
+    return x, names, y, groups
 
 
 def fit(x: np.ndarray, y: list[str]) -> tuple[LogisticRegression, np.ndarray, np.ndarray]:
@@ -59,22 +89,37 @@ def fit(x: np.ndarray, y: list[str]) -> tuple[LogisticRegression, np.ndarray, np
     scale = x.std(axis=0)
     scale[scale == 0] = 1.0
     xs = (x - mean) / scale
-    clf = LogisticRegression(max_iter=4000, C=0.5, multi_class="multinomial")
+    # multinomial is the default for multi-class in current sklearn; the explicit kwarg was
+    # removed, so passing it raises rather than being ignored.
+    clf = LogisticRegression(max_iter=4000, C=C_REG)
     clf.fit(xs, y)
     return clf, mean, scale
 
 
-def grouped_cv(x: np.ndarray, y: list[str], groups: list[int]) -> float:
+def grouped_cv(
+    x: np.ndarray,
+    y: list[str],
+    groups: list[int],
+    x_eval: np.ndarray | None = None,
+    y_eval: list[str] | None = None,
+    groups_eval: list[int] | None = None,
+) -> float:
+    """Leave-one-seed-out. Trains on prefixes, scores on whole runs when an eval set is given."""
     y_arr = np.asarray(y)
     g = np.asarray(groups)
+    xe = x if x_eval is None else x_eval
+    ye = y_arr if y_eval is None else np.asarray(y_eval)
+    ge = g if groups_eval is None else np.asarray(groups_eval)
+
     correct = total = 0
     for held in sorted(set(groups)):
-        tr, te = g != held, g == held
+        tr = g != held
+        te = ge == held
         if len(set(y_arr[tr])) < 2 or te.sum() == 0:
             continue
         clf, m, s = fit(x[tr], list(y_arr[tr]))
-        pred = clf.predict((x[te] - m) / s)
-        correct += int((pred == y_arr[te]).sum())
+        pred = clf.predict((xe[te] - m) / s)
+        correct += int((pred == ye[te]).sum())
         total += int(te.sum())
     return correct / max(total, 1)
 
@@ -133,23 +178,30 @@ def main() -> None:
     for cell in sorted({r["cell"] for r in rows}):
         cell_rows = [r for r in rows if r["cell"] == cell]
         keys = sorted(set.intersection(*[set(r["trace"].keys) for r in cell_rows]))
-        x, names, y = build_xy(cell_rows, keys)
-        groups = [r["seed"] for r in cell_rows]
+        # Train on prefixes (more data, and the same distribution the model is scored on);
+        # evaluate attribution on whole runs, which is the question a user actually asks.
+        x, names, y, groups = build_xy(cell_rows, keys, fracs=TRAIN_FRACS)
+        xe, names_e, ye, ge = build_xy(cell_rows, keys, fracs=(1.0,))
+        assert names == names_e, "prefix and full-run feature spaces diverged"
 
         print(f"\n=== {cell} ===")
-        print(f"{len(cell_rows)} runs, {len(set(y))} classes, {len(names)} features")
+        print(f"{len(cell_rows)} runs -> {len(y)} training rows, "
+              f"{len(set(y))} classes, {len(names)} features")
 
-        acc = grouped_cv(x, y, groups)
-        chance = max(np.bincount(np.unique(y, return_inverse=True)[1])) / len(y)
+        acc = grouped_cv(x, y, groups, xe, ye, ge)
+        chance = max(np.bincount(np.unique(ye, return_inverse=True)[1])) / len(ye)
         print(f"  leave-one-seed-out accuracy : {acc:.3f}   (majority class {chance:.3f})")
 
         # --- negative controls -------------------------------------------
-        step_only = np.array([[f] for f in x[:, names.index("_n_records")]])
-        acc_step = grouped_cv(step_only, y, groups)
+        ni = names.index("_n_records")
+        acc_step = grouped_cv(x[:, [ni]], y, groups, xe[:, [ni]], ye, ge)
         ret_cols = [i for i, n in enumerate(names) if n.startswith("train_return.")]
-        acc_ret = grouped_cv(x[:, ret_cols], y, groups) if ret_cols else float("nan")
+        acc_ret = (
+            grouped_cv(x[:, ret_cols], y, groups, xe[:, ret_cols], ye, ge)
+            if ret_cols else float("nan")
+        )
         rng = np.random.default_rng(0)
-        acc_shuf = grouped_cv(x, list(rng.permutation(y)), groups)
+        acc_shuf = grouped_cv(x, list(rng.permutation(y)), groups, xe, ye, ge)
         print(f"  control: step-index only    : {acc_step:.3f}")
         print(f"  control: train-return only  : {acc_ret:.3f}")
         print(f"  control: shuffled labels    : {acc_shuf:.3f}")
