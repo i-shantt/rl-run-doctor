@@ -35,6 +35,15 @@ ALGOS = ["ppo", "dqn"]
 def _run(args: tuple[RunSpec, str]) -> tuple[str, float, float, int, float]:
     spec, out_dir = args
     t0 = time.time()
+    # Resume: a trace that already parses and carries evaluations is finished work. A multi-hour
+    # grid that has to restart from zero after an interruption is a grid that never finishes.
+    existing = Path(out_dir) / f"{spec.run_id}.jsonl.gz"
+    if existing.exists():
+        try:
+            h = run_health(existing)
+            return spec.run_id, h.windowed, h.peak, h.n_evals, 0.0
+        except Exception:
+            existing.unlink(missing_ok=True)  # truncated by a kill; redo it
     path = run_one(spec, out_dir)
     h = run_health(path)
     return spec.run_id, h.windowed, h.peak, h.n_evals, time.time() - t0
@@ -48,6 +57,12 @@ def main() -> None:
     ap.add_argument("--envs", nargs="*", default=ENVS)
     ap.add_argument("--algos", nargs="*", default=ALGOS)
     ap.add_argument(
+        "--skip-cells",
+        nargs="*",
+        default=[],
+        help="cells to leave out entirely, as env/algo (e.g. chain_rho/dqn)",
+    )
+    ap.add_argument(
         "--report-only",
         action="store_true",
         help="re-derive the report from traces already on disk, without re-running anything",
@@ -57,8 +72,11 @@ def main() -> None:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    skip = set(args.skip_cells)
     jobs: list[tuple[RunSpec, str]] = []
     for env_name, algo in itertools.product(args.envs, args.algos):
+        if f"{env_name}/{algo}" in skip:
+            continue
         for path in applicable(algo, env_name):  # type: ignore[arg-type]
             for seed in range(args.seeds):
                 jobs.append((RunSpec(env_name, algo, path.name, seed), str(out_dir)))
@@ -87,8 +105,12 @@ def main() -> None:
 
     report: dict[str, dict] = {}
     for env_name, algo in itertools.product(args.envs, args.algos):
+        if f"{env_name}/{algo}" in skip:
+            continue
         paths = applicable(algo, env_name)  # type: ignore[arg-type]
         if not paths:
+            continue
+        if RunSpec(env_name, algo, "P0_control", 0).run_id not in by_run:
             continue
         controls = [
             by_run[RunSpec(env_name, algo, "P0_control", s).run_id][0]
