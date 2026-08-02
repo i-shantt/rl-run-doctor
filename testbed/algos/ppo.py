@@ -245,4 +245,12 @@ def train_ppo(
     final_eval = evaluate(
         eval_env, act_greedy, cfg.eval_episodes, obs_norm if cfg.normalize_obs else None
     )
-    return {"final_eval_return": final_eval, "updates": update, "env_steps": env_steps}
+    return {
+        "final_eval_return": final_eval,
+        "updates": update,
+        "env_steps": env_steps,
+        # In-process handle for analyses that need the trained critic (the credit study). Not
+        # serialised; corpus runs ignore it.
+        "net": net,
+        "obs_norm": obs_norm,
+    }
