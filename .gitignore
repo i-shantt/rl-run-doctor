@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.DS_Store
+
+# Generated run artifacts. Traces are committed selectively; scratch is not.
+scratch/
+*.pt
+*.ckpt
