@@ -1,0 +1,604 @@
+{
+  "cartpole/dqn": {
+    "control": [
+      209.11666666666667,
+      395.3,
+      120.10000000000001
+    ],
+    "control_mean": 241.5055555555556,
+    "floor": 115.2698888888889,
+    "margin": 4.830111111111112,
+    "pathologies": {
+      "P10_no_reseed": {
+        "dose": "-",
+        "family": "P10_no_reseed",
+        "mean_drop_vs_control": 36.84444444444446,
+        "n_below_floor": 0,
+        "severity": 1.0,
+        "values": [
+          257.68333333333334,
+          212.73333333333335,
+          143.56666666666666
+        ],
+        "verdict": "no effect"
+      },
+      "P5_no_target_network": {
+        "dose": "-",
+        "family": "P5_no_target_network",
+        "mean_drop_vs_control": 147.13333333333338,
+        "n_below_floor": 2,
+        "severity": 1.0,
+        "values": [
+          61.53333333333333,
+          86.53333333333335,
+          135.05
+        ],
+        "verdict": "partial"
+      },
+      "P6_stale_target@1000": {
+        "dose": "1000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 57.03888888888889,
+        "n_below_floor": 0,
+        "severity": 1000.0,
+        "values": [
+          126.83333333333333,
+          253.83333333333334,
+          172.73333333333335
+        ],
+        "verdict": "no effect"
+      },
+      "P6_stale_target@100000": {
+        "dose": "100000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 215.2777777777778,
+        "n_below_floor": 3,
+        "severity": 100000.0,
+        "values": [
+          45.98333333333334,
+          20.3,
+          12.4
+        ],
+        "verdict": "KEEP"
+      },
+      "P6_stale_target@20000": {
+        "dose": "20000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 220.99444444444447,
+        "n_below_floor": 3,
+        "severity": 20000.0,
+        "values": [
+          24.733333333333334,
+          20.933333333333334,
+          15.866666666666665
+        ],
+        "verdict": "KEEP"
+      },
+      "P6_stale_target@5000": {
+        "dose": "5000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 59.03888888888892,
+        "n_below_floor": 0,
+        "severity": 5000.0,
+        "values": [
+          215.04999999999998,
+          138.41666666666666,
+          193.9333333333333
+        ],
+        "verdict": "no effect"
+      },
+      "P7_replay_staleness@1000000": {
+        "dose": "1000000",
+        "family": "P7_replay_staleness",
+        "mean_drop_vs_control": -80.98888888888888,
+        "n_below_floor": 0,
+        "severity": 1000000.0,
+        "values": [
+          375.95,
+          468.95,
+          122.58333333333333
+        ],
+        "verdict": "no effect"
+      },
+      "P7_replay_staleness@200000": {
+        "dose": "200000",
+        "family": "P7_replay_staleness",
+        "mean_drop_vs_control": -80.98888888888888,
+        "n_below_floor": 0,
+        "severity": 200000.0,
+        "values": [
+          375.95,
+          468.95,
+          122.58333333333333
+        ],
+        "verdict": "no effect"
+      },
+      "P8_plasticity_loss@2.0": {
+        "dose": "2.0",
+        "family": "P8_plasticity_loss",
+        "mean_drop_vs_control": 33.54444444444445,
+        "n_below_floor": 0,
+        "severity": 2.0,
+        "values": [
+          120.63333333333333,
+          210.85,
+          292.40000000000003
+        ],
+        "verdict": "no effect"
+      },
+      "P8_plasticity_loss@4.0": {
+        "dose": "4.0",
+        "family": "P8_plasticity_loss",
+        "mean_drop_vs_control": -41.49444444444441,
+        "n_below_floor": 0,
+        "severity": 4.0,
+        "values": [
+          119.48333333333333,
+          454.2833333333333,
+          275.23333333333335
+        ],
+        "verdict": "no effect"
+      },
+      "P8_plasticity_loss@8.0": {
+        "dose": "8.0",
+        "family": "P8_plasticity_loss",
+        "mean_drop_vs_control": 158.65000000000003,
+        "n_below_floor": 3,
+        "severity": 8.0,
+        "values": [
+          95.13333333333334,
+          100.28333333333335,
+          53.15
+        ],
+        "verdict": "KEEP"
+      },
+      "P9_overestimation": {
+        "dose": "-",
+        "family": "P9_overestimation",
+        "mean_drop_vs_control": -63.372222222222206,
+        "n_below_floor": 0,
+        "severity": 1.0,
+        "values": [
+          243.13333333333333,
+          371.01666666666665,
+          300.48333333333335
+        ],
+        "verdict": "no effect"
+      }
+    },
+    "random_baseline": 19.35,
+    "usable": true
+  },
+  "cartpole/ppo": {
+    "control": [
+      500.0,
+      500.0,
+      463.98333333333335
+    ],
+    "control_mean": 487.99444444444447,
+    "floor": 454.22344444444445,
+    "margin": 9.75988888888889,
+    "pathologies": {
+      "P10_no_reseed": {
+        "dose": "-",
+        "family": "P10_no_reseed",
+        "mean_drop_vs_control": 57.71111111111111,
+        "n_below_floor": 2,
+        "severity": 1.0,
+        "values": [
+          500.0,
+          371.93333333333334,
+          418.9166666666667
+        ],
+        "verdict": "partial"
+      },
+      "P2_trust_region_blowup@0.003": {
+        "dose": "0.003",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 25.283333333333417,
+        "n_below_floor": 2,
+        "severity": 0.003,
+        "values": [
+          500.0,
+          434.26666666666665,
+          453.8666666666666
+        ],
+        "verdict": "partial"
+      },
+      "P2_trust_region_blowup@0.01": {
+        "dose": "0.01",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 398.6777777777778,
+        "n_below_floor": 3,
+        "severity": 0.01,
+        "values": [
+          112.7,
+          145.85,
+          9.4
+        ],
+        "verdict": "KEEP"
+      },
+      "P2_trust_region_blowup@0.03": {
+        "dose": "0.03",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 478.6277777777778,
+        "n_below_floor": 3,
+        "severity": 0.03,
+        "values": [
+          9.35,
+          9.4,
+          9.35
+        ],
+        "verdict": "KEEP"
+      },
+      "P2_trust_region_blowup@0.1": {
+        "dose": "0.1",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 478.61111111111114,
+        "n_below_floor": 3,
+        "severity": 0.1,
+        "values": [
+          9.4,
+          9.4,
+          9.35
+        ],
+        "verdict": "KEEP"
+      },
+      "P3_obs_norm_freeze@1": {
+        "dose": "1",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": -12.005555555555532,
+        "n_below_floor": 0,
+        "severity": 1.0,
+        "values": [
+          500.0,
+          500.0,
+          500.0
+        ],
+        "verdict": "no effect"
+      },
+      "P3_obs_norm_freeze@10": {
+        "dose": "10",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": -12.005555555555532,
+        "n_below_floor": 0,
+        "severity": 10.0,
+        "values": [
+          500.0,
+          500.0,
+          500.0
+        ],
+        "verdict": "no effect"
+      },
+      "P3_obs_norm_freeze@3": {
+        "dose": "3",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": 100.99444444444447,
+        "n_below_floor": 2,
+        "severity": 3.0,
+        "values": [
+          312.03333333333336,
+          351.84999999999997,
+          497.1166666666666
+        ],
+        "verdict": "partial"
+      },
+      "P4_reward_scale_drift@100.0": {
+        "dose": "100.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 128.68888888888887,
+        "n_below_floor": 2,
+        "severity": 100.0,
+        "values": [
+          183.48333333333335,
+          394.43333333333334,
+          500.0
+        ],
+        "verdict": "partial"
+      },
+      "P4_reward_scale_drift@1000.0": {
+        "dose": "1000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 384.0111111111111,
+        "n_below_floor": 3,
+        "severity": 1000.0,
+        "values": [
+          92.86666666666667,
+          112.8,
+          106.28333333333335
+        ],
+        "verdict": "KEEP"
+      },
+      "P4_reward_scale_drift@10000.0": {
+        "dose": "10000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 352.44444444444446,
+        "n_below_floor": 3,
+        "severity": 10000.0,
+        "values": [
+          106.48333333333333,
+          179.9,
+          120.26666666666665
+        ],
+        "verdict": "KEEP"
+      },
+      "P4_reward_scale_drift@100000.0": {
+        "dose": "100000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 319.16111111111115,
+        "n_below_floor": 3,
+        "severity": 100000.0,
+        "values": [
+          124.51666666666667,
+          170.61666666666667,
+          211.36666666666667
+        ],
+        "verdict": "KEEP"
+      }
+    },
+    "random_baseline": 19.35,
+    "usable": true
+  },
+  "deep_sea/dqn": {
+    "control": [
+      -0.005666666666666667,
+      0.3273333333333333,
+      -0.004
+    ],
+    "control_mean": 0.10588888888888888,
+    "floor": -0.0077844444444444445,
+    "margin": 0.0021177777777777775,
+    "pathologies": {
+      "P5_no_target_network": {
+        "dose": "-",
+        "family": "P5_no_target_network",
+        "mean_drop_vs_control": -0.2192222222222222,
+        "n_below_floor": 1,
+        "severity": 1.0,
+        "values": [
+          -0.008333333333333333,
+          0.9899999999999999,
+          -0.006333333333333334
+        ],
+        "verdict": "partial"
+      },
+      "P6_stale_target@1000": {
+        "dose": "1000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 0.11088888888888888,
+        "n_below_floor": 0,
+        "severity": 1000.0,
+        "values": [
+          -0.006000000000000001,
+          -0.005,
+          -0.004
+        ],
+        "verdict": "no effect"
+      },
+      "P6_stale_target@100000": {
+        "dose": "100000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 0.1101111111111111,
+        "n_below_floor": 0,
+        "severity": 100000.0,
+        "values": [
+          -0.0030000000000000005,
+          -0.005333333333333333,
+          -0.004333333333333334
+        ],
+        "verdict": "no effect"
+      },
+      "P6_stale_target@20000": {
+        "dose": "20000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 0.11033333333333332,
+        "n_below_floor": 0,
+        "severity": 20000.0,
+        "values": [
+          -0.005333333333333333,
+          -0.0036666666666666666,
+          -0.004333333333333334
+        ],
+        "verdict": "no effect"
+      },
+      "P6_stale_target@5000": {
+        "dose": "5000",
+        "family": "P6_stale_target",
+        "mean_drop_vs_control": 0.10999999999999999,
+        "n_below_floor": 0,
+        "severity": 5000.0,
+        "values": [
+          -0.005333333333333333,
+          -0.004,
+          -0.0030000000000000005
+        ],
+        "verdict": "no effect"
+      }
+    },
+    "random_baseline": -0.005050000000000001,
+    "usable": true
+  },
+  "deep_sea/ppo": {
+    "control": [
+      0.9899999999999999,
+      0.991,
+      0.991
+    ],
+    "control_mean": 0.9906666666666667,
+    "floor": 0.9701866666666665,
+    "margin": 0.019813333333333336,
+    "pathologies": {
+      "P1_entropy_collapse@0.0": {
+        "dose": "0.0",
+        "family": "P1_entropy_collapse",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 0.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P1_entropy_collapse@0.005": {
+        "dose": "0.005",
+        "family": "P1_entropy_collapse",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 0.005,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P2_trust_region_blowup@0.003": {
+        "dose": "0.003",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 0.00033333333333351867,
+        "n_below_floor": 0,
+        "severity": 0.003,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.9899999999999999
+        ],
+        "verdict": "no effect"
+      },
+      "P2_trust_region_blowup@0.01": {
+        "dose": "0.01",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 0.998,
+        "n_below_floor": 3,
+        "severity": 0.01,
+        "values": [
+          -0.008,
+          -0.008,
+          -0.006000000000000001
+        ],
+        "verdict": "KEEP"
+      },
+      "P2_trust_region_blowup@0.03": {
+        "dose": "0.03",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 0.663,
+        "n_below_floor": 2,
+        "severity": 0.03,
+        "values": [
+          0.9899999999999999,
+          -0.0030000000000000005,
+          -0.004
+        ],
+        "verdict": "partial"
+      },
+      "P2_trust_region_blowup@0.1": {
+        "dose": "0.1",
+        "family": "P2_trust_region_blowup",
+        "mean_drop_vs_control": 0.9986666666666667,
+        "n_below_floor": 3,
+        "severity": 0.1,
+        "values": [
+          -0.008,
+          -0.008,
+          -0.008
+        ],
+        "verdict": "KEEP"
+      },
+      "P3_obs_norm_freeze@1": {
+        "dose": "1",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 1.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P3_obs_norm_freeze@10": {
+        "dose": "10",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 10.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P3_obs_norm_freeze@3": {
+        "dose": "3",
+        "family": "P3_obs_norm_freeze",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 3.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P4_reward_scale_drift@100.0": {
+        "dose": "100.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 100.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      },
+      "P4_reward_scale_drift@1000.0": {
+        "dose": "1000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 0.33033333333333337,
+        "n_below_floor": 1,
+        "severity": 1000.0,
+        "values": [
+          0.9899999999999999,
+          0.0,
+          0.991
+        ],
+        "verdict": "partial"
+      },
+      "P4_reward_scale_drift@10000.0": {
+        "dose": "10000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 0.33033333333333337,
+        "n_below_floor": 1,
+        "severity": 10000.0,
+        "values": [
+          0.9899999999999999,
+          0.0,
+          0.991
+        ],
+        "verdict": "partial"
+      },
+      "P4_reward_scale_drift@100000.0": {
+        "dose": "100000.0",
+        "family": "P4_reward_scale_drift",
+        "mean_drop_vs_control": 0.0,
+        "n_below_floor": 0,
+        "severity": 100000.0,
+        "values": [
+          0.9899999999999999,
+          0.991,
+          0.991
+        ],
+        "verdict": "no effect"
+      }
+    },
+    "random_baseline": -0.005050000000000001,
+    "usable": true
+  }
+}

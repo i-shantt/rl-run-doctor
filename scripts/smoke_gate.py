@@ -88,9 +88,15 @@ def main() -> None:
         for spec, _ in jobs:
             p = out_dir / f"{spec.run_id}.jsonl.gz"
             if not p.exists():
-                print(f"missing trace: {p.name}")
                 continue
-            h = run_health(p)
+            # A trace truncated by a killed worker is not a trace. Drop it so a later resume
+            # regenerates it, rather than letting a partial gzip take down the whole report.
+            try:
+                h = run_health(p)
+            except (EOFError, OSError, ValueError) as exc:
+                print(f"discarding truncated trace {p.name}: {type(exc).__name__}")
+                p.unlink(missing_ok=True)
+                continue
             results.append((spec.run_id, h.windowed, h.peak, h.n_evals, 0.0))
         print(f"re-reporting {len(results)} traces from {out_dir}\n")
     else:

@@ -42,7 +42,14 @@ def main() -> None:
     manifest: list[dict] = []
     for cell, paths in sorted(by_cell.items()):
         env_name, _algo = cell.split("/")
-        controls = [run_health(p).windowed for p in paths if "__P0_control__" in p.name]
+        controls = []
+        for p in paths:
+            if "__P0_control__" not in p.name:
+                continue
+            try:
+                controls.append(run_health(p).windowed)
+            except (EOFError, OSError, ValueError):
+                print(f"  skipping unreadable control {p.name}")
         if len(controls) < args.min_controls:
             print(f"{cell}: only {len(controls)} controls, skipping cell")
             continue
@@ -59,7 +66,10 @@ def main() -> None:
             continue
 
         for p in sorted(paths):
-            lab = label_run(p, floor=band.threshold)
+            try:
+                lab = label_run(p, floor=band.threshold)
+            except (EOFError, OSError, ValueError):
+                continue
             manifest.append(
                 {
                     "run_id": lab.run_id,
