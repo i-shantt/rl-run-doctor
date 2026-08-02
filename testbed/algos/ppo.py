@@ -6,7 +6,7 @@ rather than a patched code path. That keeps the corpus reproducible from its man
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -209,7 +209,9 @@ def train_ppo(
         expl_var = float("nan") if var_y == 0 else 1.0 - float(np.var(y - yhat)) / var_y
 
         signals = {
-            "train_return": float(np.mean(recent_returns[-20:])) if recent_returns else float("nan"),
+            "train_return": (
+                float(np.mean(recent_returns[-20:])) if recent_returns else float("nan")
+            ),
             "policy_loss": pl / n_batches,
             "value_loss": vl / n_batches,
             "entropy": ent / n_batches,

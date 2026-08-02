@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,analysis]"
+
+      - name: Lint
+        run: ruff check src testbed scripts tests
+
+      - name: Test
+        run: pytest -q
+
+      # The package is meant to install into someone else's training image. If importing it drags
+      # in a tensor library, that promise is broken, so this is asserted in a torch-free
+      # environment rather than trusted.
+      - name: Shipped package imports without torch
+        run: |
+          python - <<'PY'
+          import sys
+          import rl_run_doctor
+          assert "torch" not in sys.modules, "rl_run_doctor pulled in torch"
+          heavy = [m for m in ("torch", "tensorflow", "jax", "sklearn") if m in sys.modules]
+          assert not heavy, f"unexpected heavy imports: {heavy}"
+          print("clean:", rl_run_doctor.__version__)
+          PY

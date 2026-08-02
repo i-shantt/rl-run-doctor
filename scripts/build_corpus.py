@@ -17,8 +17,6 @@ import multiprocessing as mp
 import time
 from pathlib import Path
 
-import numpy as np
-
 from testbed.corpus.runner import RunSpec, run_one
 from testbed.health import healthy_band, run_health
 from testbed.label import label_run

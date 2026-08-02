@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import gzip
 import json
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 SCHEMA_VERSION = 1
 
@@ -43,7 +44,10 @@ class TraceWriter:
     def __init__(self, path: str | Path, meta: dict[str, Any]) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._fh = gzip.open(self.path, "wt", encoding="utf-8")
+        # Held open for the life of the writer on purpose -- TraceWriter is itself the
+        # context manager, and records are flushed as they are produced so a killed run still
+        # leaves an analysable prefix.
+        self._fh = gzip.open(self.path, "wt", encoding="utf-8")  # noqa: SIM115
         header = {"kind": "meta", "schema_version": SCHEMA_VERSION, **meta}
         self._fh.write(json.dumps(header, sort_keys=True) + "\n")
         self._fh.flush()

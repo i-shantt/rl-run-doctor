@@ -145,7 +145,8 @@ def train_dqn(
     update = 0
 
     # Accumulators reset at every log boundary.
-    acc = {k: 0.0 for k in ("loss", "td_abs", "td_mean", "q_mean", "q_max", "tgt_gap", "gnorm", "age")}
+    _ACC_KEYS = ("loss", "td_abs", "td_mean", "q_mean", "q_max", "tgt_gap", "gnorm", "age")
+    acc = dict.fromkeys(_ACC_KEYS, 0.0)
     acc_n = 0
     grad_step_debt = 0.0
 
@@ -156,7 +157,9 @@ def train_dqn(
         )
         obs_norm.update(raw_obs)
         o = obs_norm(raw_obs)
-        if rng.random() < eps:
+        # Kept as a branch rather than a ternary: which arm ran is the difference between
+        # exploring and exploiting, and it is worth being able to read at a glance.
+        if rng.random() < eps:  # noqa: SIM108
             action = int(rng.integers(0, env.n_actions))
         else:
             action = act_greedy(o)
