@@ -54,17 +54,24 @@ def label_run(path: str | Path, floor: float, persist: int = PERSIST) -> RunLabe
     arr = np.asarray(curve)
     windowed = float(arr[-3:].mean())
 
+    failed = windowed <= floor
+
+    # When did it break *and stay broken*? Not the first dip below the floor.
+    #
+    # The floor comes from converged control performance, so early training sits below it for
+    # every run including healthy ones. Anchoring to the first crossing dated a ramped fault's
+    # degradation to step 512 -- the first evaluation, before the agent had learned anything --
+    # and made every lead-time measurement meaningless. A run cannot degrade before it has
+    # learned. Taking the start of the final sustained sub-floor stretch also ignores the
+    # mid-run wobble that unstable algorithms produce on their own.
     degrade_step: int | None = None
     below = arr <= floor
-    for i in range(len(below) - persist + 1):
-        if below[i : i + persist].all():
+    if failed and below[-1]:
+        i = len(below) - 1
+        while i > 0 and below[i - 1]:
+            i -= 1
+        if len(below) - i >= persist:
             degrade_step = steps[i]
-            break
-
-    failed = windowed <= floor
-    # A run whose trailing window is healthy did not fail, whatever happened mid-run.
-    if not failed:
-        degrade_step = None
 
     return RunLabel(
         run_id=meta_spec["run_id"],

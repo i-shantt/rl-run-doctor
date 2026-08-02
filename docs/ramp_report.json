@@ -1,0 +1,14 @@
+{
+  "cartpole/dqn": {
+    "detection_rate": 1.0,
+    "fpr": 0.1111111111111111,
+    "median_lead_vs_return": -14000.0,
+    "median_vs_cliff": 26500.0
+  },
+  "cartpole/ppo": {
+    "detection_rate": 1.0,
+    "fpr": 0.2,
+    "median_lead_vs_return": -5888.0,
+    "median_vs_cliff": -36352.0
+  }
+}

@@ -97,6 +97,29 @@ def test_label_requires_a_persistent_fall_not_a_dip(tmp_path: Path) -> None:
     assert lab2.degrade_step == 2000, "degradation is dated to the first of the persistent run"
 
 
+def test_degradation_is_not_dated_to_the_warm_up(tmp_path: Path) -> None:
+    """The floor comes from converged controls, so *every* run is below it early on.
+
+    Anchoring to the first crossing dated a ramped fault's degradation to the first evaluation,
+    before the agent had learned anything, and every lead time measured against it was fiction.
+    """
+    p = _write_trace(tmp_path / "warm.jsonl.gz", [10, 20, 300, 320, 310, 15, 12, 11])
+    lab = label_run(p, floor=100.0)
+    assert lab.failed
+    assert lab.degrade_step == 5000, (
+        f"degradation dated to {lab.degrade_step}, should be the collapse at index 5 "
+        "rather than the warm-up at index 0"
+    )
+
+
+def test_mid_run_wobble_does_not_move_the_onset(tmp_path: Path) -> None:
+    """Unstable algorithms dip and recover on their own; only the terminal break counts."""
+    p = _write_trace(tmp_path / "wobble.jsonl.gz", [300, 50, 300, 320, 40, 30, 25])
+    lab = label_run(p, floor=100.0)
+    assert lab.failed
+    assert lab.degrade_step == 4000
+
+
 def test_healthy_trailing_window_overrides_a_mid_run_collapse(tmp_path: Path) -> None:
     """A run that dipped and recovered did not fail, whatever happened in the middle."""
     p = _write_trace(tmp_path / "e.jsonl.gz", [300, 20, 20, 300, 310, 305])

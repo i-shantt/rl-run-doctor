@@ -174,6 +174,51 @@ For PPO the picture is the opposite: controls are effectively flat once converge
 sustained fall is signal. Gradual-onset work is measurable there and not measurable on DQN, and
 the deciding factor is the algorithm rather than the injection design.
 
+## Phase 2c — the gap did not close
+
+Ramped faults, 26 runs, five PPO seeds and three DQN seeds.
+
+| | median lead vs return drop | detections that were early | vs cliff crossing |
+|---|---|---|---|
+| CartPole / PPO | **−5,888 steps** | 30% | −36,352 (0% after the cliff) |
+| CartPole / DQN | **−14,000 steps** | 0% | +26,500 (100% after the cliff) |
+
+Still negative. Three distinct reasons, and only the third is about detection:
+
+**R2 was not a gradual fault at all.** Its base configuration turns advantage normalisation off,
+and on CartPole that alone is destabilising: three of five seeds peak at 153–197 against a control
+of 491 and are already below the floor at the first evaluation. The ramp never had a healthy
+period to degrade from. This is a design error in the fault, not a finding.
+
+**R1's cliff was in the wrong place.** The dose sweep bracketed the learning-rate cliff between a
+survivable 3e-3 and a fatal 1e-2, so the ramp was built to cross 1e-2 at the halfway point. Four of
+five seeds degraded *before* that crossing, which says the true cliff is nearer 5.7e-3. A useful
+refinement, and it means R1 spends much less of its run in the bad-but-not-yet-fatal regime than
+intended.
+
+**R4 is the clean case, and it still gives no warning.** Update-to-data ratio ramping 1→64,
+crossing its measured cliff of 8 at step 29,500. Both failing seeds degrade well after that
+crossing (40,000 and 44,000), so there is a real 10,000-step window in which the configuration is
+destructive and the return has not yet fallen. The detector fires at roughly step 56,000 — after
+both. **The window exists and the signal battery does not fill it.**
+
+So the honest statement is narrower and stronger than "early warning is impossible": with this
+signal battery, fitted this way, the training-time signals do not move before the held-out return
+does, even when a genuine pre-degradation window is constructed on purpose. Whether a battery
+built specifically for earliness could fill that window is untested and is the obvious next
+question.
+
+**Not claimed.** False-alarm rates are 0.11–0.20 against a 0.05 target; five control runs cannot
+demonstrate 5%.
+
+**A labelling bug was found and fixed here, and it mattered.** Degradation had been dated to the
+first persistent fall below the floor. But the floor comes from *converged* control performance,
+so early training sits below it for every run, healthy ones included — a ramped fault was being
+dated to step 512, the first evaluation, before the agent had learned anything. Re-dating to the
+start of the final sustained sub-floor stretch moved the PPO median lead from −23,040 to −5,888
+and early detections from 10% to 30%. The sign did not change, but every number before this fix
+was fiction.
+
 ## Phase 3 — credit assignment
 
 **Prediction.** On `chain_rho`, GAE's per-step credit will correlate with exact credit at
