@@ -15,6 +15,7 @@ import torch
 from torch import nn
 
 from ..envs import Env
+from ..inject.ramp import Ramp
 from ..telemetry import TraceWriter, UpdateRecord
 from .common import RunningNorm, evaluate, rollout_seed_stream
 from .nets import MLP, dormant_fraction, effective_rank, grad_norm, make_probe_batch, weight_norm
@@ -54,10 +55,12 @@ class DQNConfig:
     log_every: int = 1_000
     seed: int = 0
     reseed_envs: bool = True
+    ramps: tuple[Ramp, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         d = self.__dict__.copy()
         d["hidden"] = list(self.hidden)
+        d["ramps"] = [r.to_dict() for r in self.ramps]
         return d
 
 
@@ -151,6 +154,13 @@ def train_dqn(
     grad_step_debt = 0.0
 
     for step in range(cfg.total_steps):
+        progress = step / max(cfg.total_steps - 1, 1)
+        ramped = {r.field: r.value(progress) for r in cfg.ramps}
+        eff_target_interval = int(ramped.get("target_update_interval", cfg.target_update_interval))
+        eff_replay_ratio = ramped.get("replay_ratio", cfg.replay_ratio)
+        if "lr" in ramped:
+            for g in opt.param_groups:
+                g["lr"] = ramped["lr"]
         eps = max(
             cfg.eps_end,
             cfg.eps_start + (cfg.eps_end - cfg.eps_start) * (step / max(cfg.eps_decay_steps, 1)),
@@ -177,7 +187,7 @@ def train_dqn(
             raw_obs = env.reset(seed=next_seed())
 
         if step >= cfg.learning_starts and step % cfg.train_frequency == 0:
-            grad_step_debt += cfg.replay_ratio * cfg.train_frequency
+            grad_step_debt += eff_replay_ratio * cfg.train_frequency
             while grad_step_debt >= 1.0:
                 grad_step_debt -= 1.0
                 batch = buf.sample(cfg.batch_size, rng)
@@ -219,7 +229,7 @@ def train_dqn(
                     acc["age"] += float(np.mean(step - batch["added_at"]))
                 acc_n += 1
 
-                if cfg.use_target_network and update % cfg.target_update_interval == 0:
+                if cfg.use_target_network and update % max(eff_target_interval, 1) == 0:
                     target.load_state_dict(q.state_dict())
 
         if cfg.reset_interval is not None and step > 0 and step % cfg.reset_interval == 0:
@@ -248,7 +258,6 @@ def train_dqn(
                 "weight_norm": weight_norm(q),
                 "dormant_frac": dormant_fraction(q, probe),
                 "effective_rank": effective_rank(q, probe),
-                "lr": cfg.lr,
             }
             oracle: dict[str, float] = {}
             if step % cfg.eval_every == 0:

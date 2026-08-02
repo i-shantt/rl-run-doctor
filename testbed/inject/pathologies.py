@@ -18,6 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from .ramp import Ramp
+
 Algo = Literal["ppo", "dqn"]
 
 
@@ -31,6 +33,10 @@ class Pathology:
     cfg: dict[str, Any] = field(default_factory=dict)
     env: dict[str, Any] = field(default_factory=dict)
     only_envs: tuple[str, ...] = ()
+    # For ramped faults: the value at which the dose sweep showed this mechanism becomes fatal.
+    # Combined with the ramp this gives a parameter-space onset, known independently of the
+    # held-out evaluation.
+    cliff: float | None = None
 
     @property
     def is_control(self) -> bool:
@@ -181,6 +187,67 @@ PATHOLOGIES: tuple[Pathology, ...] = (
         only_envs=("chain_rho",),
     ),
 )
+
+# ---- Ramped faults -----------------------------------------------------------------------
+# Each ramp starts at the control's setting and ends well past the cliff the dose sweep located,
+# with the crossing placed at the halfway point of training. Interpolation is geometric, so the
+# run spends comparable time either side rather than sitting in the harmless regime almost
+# throughout.
+#
+# Measured cliffs: PPO learning rate without a trust region is harmless at 3e-3 and fatal at 1e-2;
+# reward scale is partial at 100 and fatal at 1e3; DQN target refresh is harmless at 5,000 and
+# fatal at 20,000; update-to-data ratio is harmless at 4 and fatal at 8.
+RAMPED: tuple[Pathology, ...] = (
+    Pathology(
+        name="R1_lr_ramp",
+        family="R1_lr_ramp",
+        severity=1.0,
+        algos=("ppo",),
+        mechanism="Learning rate climbs 1e-3 -> 1e-1 with the trust region removed",
+        cfg={
+            "clip_coef": None,
+            "max_grad_norm": None,
+            "ramps": (Ramp(field="lr", start=1e-3, end=1e-1),),
+        },
+        cliff=1e-2,
+        only_envs=("cartpole",),
+    ),
+    Pathology(
+        name="R2_reward_scale_ramp",
+        family="R2_reward_scale_ramp",
+        severity=1.0,
+        algos=("ppo",),
+        mechanism="Reward scale climbs 1 -> 1e6 with advantage normalisation off",
+        cfg={
+            "normalize_advantage": False,
+            "ramps": (Ramp(field="reward_scale", start=1.0, end=1e6),),
+        },
+        cliff=1e3,
+        only_envs=("cartpole",),
+    ),
+    Pathology(
+        name="R3_target_lag_ramp",
+        family="R3_target_lag_ramp",
+        severity=1.0,
+        algos=("dqn",),
+        mechanism="Target refresh interval climbs 200 -> 2e6, so bootstrap targets go stale slowly",
+        cfg={"ramps": (Ramp(field="target_update_interval", start=200.0, end=2e6),)},
+        cliff=2e4,
+        only_envs=("cartpole",),
+    ),
+    Pathology(
+        name="R4_replay_ratio_ramp",
+        family="R4_replay_ratio_ramp",
+        severity=1.0,
+        algos=("dqn",),
+        mechanism="Update-to-data ratio climbs 1 -> 64 with no resets",
+        cfg={"ramps": (Ramp(field="replay_ratio", start=1.0, end=64.0),)},
+        cliff=8.0,
+        only_envs=("cartpole",),
+    ),
+)
+
+PATHOLOGIES = PATHOLOGIES + RAMPED
 
 BY_NAME = {p.name: p for p in PATHOLOGIES}
 FAMILIES = sorted({p.family for p in PATHOLOGIES if not p.is_control})

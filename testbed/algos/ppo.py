@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 from ..envs import Env
+from ..inject.ramp import Ramp
 from ..telemetry import TraceWriter, UpdateRecord
 from .common import RunningNorm, evaluate, rollout_seed_stream
 from .nets import MLP, dormant_fraction, effective_rank, grad_norm, make_probe_batch, weight_norm
@@ -44,10 +45,13 @@ class PPOConfig:
     reseed_envs: bool = True
     # After this many updates the observation normaliser stops tracking. None = never.
     freeze_obs_norm_after: int | None = None
+    # Fields that move during training. See testbed/inject/ramp.py.
+    ramps: tuple[Ramp, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         d = self.__dict__.copy()
         d["hidden"] = list(self.hidden)
+        d["ramps"] = [r.to_dict() for r in self.ramps]
         return d
 
 
@@ -91,6 +95,15 @@ def train_ppo(
     n_updates = max(1, cfg.total_steps // cfg.n_steps)
 
     while update < n_updates:
+        progress = update / max(n_updates - 1, 1)
+        ramped = {r.field: r.value(progress) for r in cfg.ramps}
+        eff_lr = ramped.get("lr", cfg.lr)
+        eff_ent = ramped.get("ent_coef", cfg.ent_coef)
+        eff_rscale = ramped.get("reward_scale", cfg.reward_scale)
+        if cfg.ramps:
+            for g in opt.param_groups:
+                g["lr"] = eff_lr
+
         if cfg.freeze_obs_norm_after is not None and update >= cfg.freeze_obs_norm_after:
             obs_norm.frozen = True
 
@@ -117,7 +130,7 @@ def train_ppo(
             res = env.step(action)
             env_steps += 1
             ep_return += res.reward
-            rew_buf[t] = res.reward * cfg.reward_scale
+            rew_buf[t] = res.reward * eff_rscale
             done = res.terminated or res.truncated
             done_buf[t] = float(done)
             raw_obs = res.obs
@@ -184,7 +197,7 @@ def train_ppo(
                         )
 
                 value_loss = 0.5 * ((value - ret_t[mb_t]) ** 2).mean()
-                loss = policy_loss + cfg.vf_coef * value_loss - cfg.ent_coef * entropy
+                loss = policy_loss + cfg.vf_coef * value_loss - eff_ent * entropy
 
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
@@ -229,7 +242,6 @@ def train_ppo(
             "dormant_frac_critic": dormant_fraction(net.critic, probe),
             "effective_rank_actor": effective_rank(net.actor, probe),
             "effective_rank_critic": effective_rank(net.critic, probe),
-            "lr": cfg.lr,
         }
 
         oracle: dict[str, float] = {}

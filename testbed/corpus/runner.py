@@ -6,7 +6,6 @@ the script that produced it.
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,7 @@ from ..algos.dqn import DQNConfig, train_dqn
 from ..algos.ppo import PPOConfig, train_ppo
 from ..envs import make
 from ..inject.pathologies import BY_NAME
+from ..inject.ramp import Ramp
 from ..telemetry import TraceWriter
 
 # Per-environment defaults. PPO rollout lengths are whole multiples of the episode length where the
@@ -62,6 +62,18 @@ class RunSpec:
         return f"{self.env_name}__{self.algo}__{self.pathology}__s{self.seed}"
 
 
+def _jsonable(obj: Any) -> Any:
+    """Ramps are dataclasses, not JSON scalars. The manifest has to record them, because a ramped
+    run is not reproducible from a config field alone."""
+    if isinstance(obj, Ramp):
+        return obj.to_dict()
+    if isinstance(obj, list | tuple):
+        return [_jsonable(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _jsonable(v) for k, v in obj.items()}
+    return obj
+
+
 def build(spec: RunSpec) -> tuple[Any, Any, Any]:
     """Return (train_env, eval_env, cfg) with the pathology applied."""
     path = BY_NAME[spec.pathology]
@@ -95,8 +107,9 @@ def run_one(spec: RunSpec, out_dir: str | Path) -> Path:
         "pathology": {
             "name": path.name,
             "mechanism": path.mechanism,
-            "cfg_overrides": json.loads(json.dumps(path.cfg)),
-            "env_overrides": json.loads(json.dumps(path.env)),
+            "cfg_overrides": _jsonable(path.cfg),
+            "env_overrides": _jsonable(path.env),
+            "cliff": path.cliff,
         },
         "cfg": cfg.to_dict(),
         "env_kwargs": {**ENV_DEFAULTS[spec.env_name], **path.env},
