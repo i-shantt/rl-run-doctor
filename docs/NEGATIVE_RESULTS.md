@@ -100,6 +100,52 @@ all surviving pathologies. A detector that fires only after the reward curve has
 tells the practitioner nothing they did not have, and the project should be reported as a negative
 result rather than shipped.
 
+## Phase 2 — outcome: attribution works, early warning does not
+
+Corpus: 63 runs (15 controls, 48 failed pathology runs), 3 seeds, pooled within an algorithm
+across environments. Only doses the sweep showed to reliably degrade are included, and a pathology
+run that did not degrade is excluded rather than labelled with a mechanism it did not exhibit.
+
+| | pooled DQN | pooled PPO |
+|---|---|---|
+| leave-one-seed-out accuracy | **0.933** | **0.812** |
+| majority class | 0.400 | 0.521 |
+| control: step-index only | 0.400 | 0.521 |
+| control: train-return only | 0.600 | 0.521 |
+| control: shuffled labels | 0.267 | 0.271 |
+| margin over step-index | **+0.533** | **+0.292** |
+| median lead time @ FPR | **−2,000 steps** | **−3,584 steps** |
+| detections that were early | 22% | 0% |
+
+**Predictions that held.** The step-index control landed at 0.400 and 0.521, inside the predicted
+0.40–0.60, and the real model cleared it by well over the required 0.15 — the corpus is not merely
+time-confounded. Leave-one-pathology-out came in at 0.00–0.39, at or below chance, as predicted: a
+detector cannot place a mechanism it has never seen, so the honest claim is "names the failures it
+was trained on", not "diagnoses RL runs".
+
+**The falsifier fired.** The pre-registered exit condition was: *median lead time at a fixed
+false-alarm rate ≤ 0 across all surviving pathologies*. Measured: −2,000 and −3,584 steps, with
+0–22% of detections arriving before the held-out return fell. The detector reliably names the
+cause, and it does so **after the reward curve already showed you there was a problem.**
+
+**Why, and this is the interesting part.** The prediction was that lead time would *split* by
+failure shape — large and positive for divergence-type faults, near zero for slow degradation.
+That was wrong in a way that is more informative than being right. The smoke gate selects for
+mechanisms that reliably and quickly destroy a run, and those are precisely the ones with no
+warning period to detect: trust-region blow-up at lr=0.1 takes CartPole from 488 to 9.4, which is
+the pole falling immediately. The slow mechanisms that *would* have a detectable onset —
+update-to-data ratio at 4x, replay staleness, stale targets at 5,000 — never degrade enough to
+clear the failure threshold, so they are never labelled failures and never enter the corpus.
+
+So the structural tension is: **the pathologies severe enough to label reliably are too fast to
+warn about, and the ones slow enough to warn about are too mild to label.** Every dose in this
+sweep sits on one side or the other of that gap. It is not obvious that the gap can be closed by
+choosing better doses, because the dose–response curves are cliffs rather than gradients — stale
+targets do nothing at 5,000 and destroy the run at 20,000, with nothing in between.
+
+**What is not claimed.** The false-alarm rate is 0.11–0.17 against a 0.05 target. With 15 control
+runs you cannot demonstrate a 5% false-alarm rate; the number reported is what the data supports.
+
 ## Phase 3 — credit assignment
 
 **Prediction.** On `chain_rho`, GAE's per-step credit will correlate with exact credit at

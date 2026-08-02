@@ -162,6 +162,71 @@ def prefix_scores(rows: list[dict], diag: LinearDiagnoser, keys: list[str]) -> l
     return out
 
 
+def analyse(rows: list[dict], title: str, out: Path, alpha: float) -> None:
+    keys = sorted(set.intersection(*[set(r["trace"].keys) for r in rows]))
+    if len({r["pathology"] for r in rows}) < 2:
+        print(f"\n=== {title} ===\n  only one class present; nothing to attribute")
+        return
+
+    x, names, y, groups = build_xy(rows, keys, fracs=TRAIN_FRACS)
+    xe, names_e, ye, ge = build_xy(rows, keys, fracs=(1.0,))
+    assert names == names_e, "prefix and full-run feature spaces diverged"
+
+    print(f"\n=== {title} ===")
+    counts = {c: y.count(c) for c in sorted(set(y))}
+    print(f"{len(rows)} runs -> {len(y)} training rows, {len(names)} features, "
+          f"{len(keys)} shared signals")
+    print(f"  classes: {counts}")
+
+    acc = grouped_cv(x, y, groups, xe, ye, ge)
+    chance = max(np.bincount(np.unique(ye, return_inverse=True)[1])) / len(ye)
+    print(f"  leave-one-seed-out accuracy : {acc:.3f}   (majority class {chance:.3f})")
+
+    ni = names.index("_n_records")
+    acc_step = grouped_cv(x[:, [ni]], y, groups, xe[:, [ni]], ye, ge)
+    ret_cols = [i for i, n in enumerate(names) if n.startswith("train_return.")]
+    acc_ret = (
+        grouped_cv(x[:, ret_cols], y, groups, xe[:, ret_cols], ye, ge)
+        if ret_cols else float("nan")
+    )
+    # Shuffle at the *run* level and rebuild both matrices from the permuted labels. Permuting
+    # the training vector alone leaves each run's several prefixes with different random labels
+    # while the eval labels stay true, which leaks: it scored 0.625 against a 0.521 majority
+    # class, i.e. a model trained on noise beating the trivial baseline.
+    rng = np.random.default_rng(0)
+    perm = list(rng.permutation([r["pathology"] for r in rows]))
+    shuffled_rows = [dict(r, pathology=lab) for r, lab in zip(rows, perm, strict=True)]
+    xs_, _, ys_, gs_ = build_xy(shuffled_rows, keys, fracs=TRAIN_FRACS)
+    xse, _, yse, gse = build_xy(shuffled_rows, keys, fracs=(1.0,))
+    acc_shuf = grouped_cv(xs_, ys_, gs_, xse, yse, gse)
+    print(f"  control: step-index only    : {acc_step:.3f}")
+    print(f"  control: train-return only  : {acc_ret:.3f}")
+    print(f"  control: shuffled labels    : {acc_shuf:.3f}")
+    margin = acc - acc_step
+    print(f"  margin over step-index      : {margin:+.3f}  "
+          f"[{'OK' if margin >= 0.15 else 'TIME-CONFOUNDED'}]")
+
+    lopo = leave_one_pathology_out(x, y)
+    if lopo:
+        print("  leave-one-pathology-out (fraction not called healthy):")
+        for k, v in sorted(lopo.items()):
+            print(f"      {k:<26} {v:.2f}")
+
+    clf, mean, scale = fit(x, y)
+    diag = LinearDiagnoser(
+        feature_names=names, classes=list(clf.classes_), coef=clf.coef_,
+        intercept=clf.intercept_, mean=mean, scale=scale,
+    )
+    scored = prefix_scores(rows, diag, keys)
+    if any(s.failed for s in scored) and any(not s.failed for s in scored):
+        print(f"  {lead_time_at_fpr(scored, alpha=alpha).summary()}")
+    else:
+        print("  lead time: not computable (need both failed and healthy runs)")
+
+    out.mkdir(parents=True, exist_ok=True)
+    diag.save(out / f"diagnoser_{title.replace('/', '_').replace(' ', '_')}.json")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", default="corpus")
@@ -169,72 +234,26 @@ def main() -> None:
     ap.add_argument("--alpha", type=float, default=0.05)
     args = ap.parse_args()
 
-    corpus = Path(args.corpus)
-    rows = load_corpus(corpus)
+    rows = load_corpus(Path(args.corpus))
     if not rows:
         print("empty corpus")
         return
+    out = Path(args.out)
 
     for cell in sorted({r["cell"] for r in rows}):
-        cell_rows = [r for r in rows if r["cell"] == cell]
-        keys = sorted(set.intersection(*[set(r["trace"].keys) for r in cell_rows]))
-        # Train on prefixes (more data, and the same distribution the model is scored on);
-        # evaluate attribution on whole runs, which is the question a user actually asks.
-        x, names, y, groups = build_xy(cell_rows, keys, fracs=TRAIN_FRACS)
-        xe, names_e, ye, ge = build_xy(cell_rows, keys, fracs=(1.0,))
-        assert names == names_e, "prefix and full-run feature spaces diverged"
+        analyse([r for r in rows if r["cell"] == cell], cell, out, args.alpha)
 
-        print(f"\n=== {cell} ===")
-        print(f"{len(cell_rows)} runs -> {len(y)} training rows, "
-              f"{len(set(y))} classes, {len(names)} features")
-
-        acc = grouped_cv(x, y, groups, xe, ye, ge)
-        chance = max(np.bincount(np.unique(ye, return_inverse=True)[1])) / len(ye)
-        print(f"  leave-one-seed-out accuracy : {acc:.3f}   (majority class {chance:.3f})")
-
-        # --- negative controls -------------------------------------------
-        ni = names.index("_n_records")
-        acc_step = grouped_cv(x[:, [ni]], y, groups, xe[:, [ni]], ye, ge)
-        ret_cols = [i for i, n in enumerate(names) if n.startswith("train_return.")]
-        acc_ret = (
-            grouped_cv(x[:, ret_cols], y, groups, xe[:, ret_cols], ye, ge)
-            if ret_cols else float("nan")
-        )
-        rng = np.random.default_rng(0)
-        acc_shuf = grouped_cv(x, list(rng.permutation(y)), groups, xe, ye, ge)
-        print(f"  control: step-index only    : {acc_step:.3f}")
-        print(f"  control: train-return only  : {acc_ret:.3f}")
-        print(f"  control: shuffled labels    : {acc_shuf:.3f}")
-        margin = acc - acc_step
-        flag = "OK" if margin >= 0.15 else "TIME-CONFOUNDED"
-        print(f"  margin over step-index      : {margin:+.3f}  [{flag}]")
-
-        lopo = leave_one_pathology_out(x, y)
-        if lopo:
-            print("  leave-one-pathology-out (fraction not called healthy):")
-            for k, v in sorted(lopo.items()):
-                print(f"      {k:<26} {v:.2f}")
-
-        # --- lead time ---------------------------------------------------
-        clf, mean, scale = fit(x, y)
-        diag = LinearDiagnoser(
-            feature_names=names,
-            classes=list(clf.classes_),
-            coef=clf.coef_,
-            intercept=clf.intercept_,
-            mean=mean,
-            scale=scale,
-        )
-        scored = prefix_scores(cell_rows, diag, keys)
-        if any(s.failed for s in scored) and any(not s.failed for s in scored):
-            lt = lead_time_at_fpr(scored, alpha=args.alpha)
-            print(f"  {lt.summary()}")
-        else:
-            print("  lead time: not computable (need both failed and healthy runs)")
-
-        out = Path(args.out)
-        out.mkdir(parents=True, exist_ok=True)
-        diag.save(out / f"diagnoser_{cell.replace('/', '_')}.json")
+    # Pooled within an algorithm. The features are deliberately baseline-relative shape
+    # descriptors rather than levels, precisely so a CartPole gradient norm and a DeepSea gradient
+    # norm are comparable. If that design works, one model spans the environments; if it does not,
+    # this is where it shows.
+    print("\n" + "=" * 60)
+    print("POOLED ACROSS ENVIRONMENTS (the claim the features were designed for)")
+    print("=" * 60)
+    for algo in sorted({r["algo"] for r in rows}):
+        pooled = [r for r in rows if r["algo"] == algo]
+        envs = sorted({r["env"] for r in pooled})
+        analyse(pooled, f"all-envs {algo} ({'+'.join(envs)})", out, args.alpha)
 
     print(f"\nmodels written to {args.out}/")
 

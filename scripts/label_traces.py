@@ -23,7 +23,40 @@ def main() -> None:
     ap.add_argument("--traces", required=True, help="directory of .jsonl.gz traces")
     ap.add_argument("--out", required=True, help="directory to write manifest.jsonl into")
     ap.add_argument("--min-controls", type=int, default=2)
+    ap.add_argument(
+        "--smoke-report",
+        help="only include doses this report marked KEEP, plus controls",
+    )
+    ap.add_argument(
+        "--failed-only",
+        action="store_true",
+        help=(
+            "keep pathology runs only where they actually degraded. Controls are always kept. "
+            "The tool answers 'why is this run failing', so a run that is not failing must not "
+            "carry a diagnosis -- and a dose that bit in one cell often does nothing in another."
+        ),
+    )
+    ap.add_argument(
+        "--label",
+        choices=["family", "dose"],
+        default="family",
+        help="class label: the mechanism, or the specific dose",
+    )
     args = ap.parse_args()
+
+    # A dose that did not reliably degrade performance is a healthy run wearing a pathology's
+    # name. Training on it teaches the classifier that its own control is a failure mode.
+    keep: set[str] | None = None
+    if args.smoke_report:
+        rep = json.loads(Path(args.smoke_report).read_text())
+        keep = {
+            name
+            for cell in rep.values()
+            for name, v in cell.get("pathologies", {}).items()
+            if v.get("verdict") == "KEEP"
+        }
+        keep.add("P0_control")
+        print(f"restricting to {len(keep)} kept levels: {sorted(keep)}\n")
 
     traces = sorted(Path(args.traces).glob("*.jsonl.gz"))
     if not traces:
@@ -53,7 +86,7 @@ def main() -> None:
         if len(controls) < args.min_controls:
             print(f"{cell}: only {len(controls)} controls, skipping cell")
             continue
-        band = healthy_band(controls, q=5.0)
+        band = healthy_band(controls)
         rand = random_policy_return(env_name, ENV_DEFAULTS[env_name], n_episodes=20)
         lift = band.mean - rand
         span = max(abs(rand), abs(band.mean), 1e-9)
@@ -70,6 +103,13 @@ def main() -> None:
                 lab = label_run(p, floor=band.threshold)
             except (EOFError, OSError, ValueError):
                 continue
+            if keep is not None and lab.pathology not in keep:
+                continue
+            is_control = lab.pathology == "P0_control"
+            if args.failed_only and not is_control and not lab.failed:
+                continue
+            family = lab.pathology.split("@", 1)[0]
+            klass = family if args.label == "family" else lab.pathology
             manifest.append(
                 {
                     "run_id": lab.run_id,
@@ -77,8 +117,9 @@ def main() -> None:
                     "cell": cell,
                     "env": lab.env_name,
                     "algo": lab.algo,
-                    "pathology": lab.pathology,
-                    "family": lab.pathology.split("@", 1)[0],
+                    "pathology": klass,
+                    "dose": lab.pathology,
+                    "family": family,
                     "seed": lab.seed,
                     "failed": lab.failed,
                     "windowed_eval": lab.windowed,
