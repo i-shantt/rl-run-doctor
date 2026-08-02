@@ -26,7 +26,17 @@ ENV_DEFAULTS: dict[str, dict[str, Any]] = {
 }
 
 PPO_ENV_CFG: dict[str, dict[str, Any]] = {
-    "cartpole": {"total_steps": 120_000, "n_steps": 512, "eval_every": 4, "eval_episodes": 20},
+    # lr tuned: the original 3e-4/0.01 control averaged 365 on CartPole, which was weak enough
+    # that three injected "pathologies" scored *better* than it. A 3x3 sweep put 1e-3/0.01 at a
+    # 464 mean with a 392 worst seed. (3e-3/0.0 is better still at 500/500/500, but a control
+    # pinned to the ceiling leaves nothing to distinguish mild degradation from noise.)
+    "cartpole": {
+        "total_steps": 120_000,
+        "n_steps": 512,
+        "eval_every": 4,
+        "eval_episodes": 20,
+        "lr": 1e-3,
+    },
     "deep_sea": {"total_steps": 40_000, "n_steps": 500, "eval_every": 4, "eval_episodes": 5,
                  "ent_coef": 0.02},
     "chain_rho": {"total_steps": 40_000, "n_steps": 480, "eval_every": 4, "eval_episodes": 5},

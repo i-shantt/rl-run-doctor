@@ -119,29 +119,50 @@ def main() -> None:
             continue
 
         cell: dict[str, dict] = {}
+        # Grouped by family and ordered by dose, so each block reads as a dose-response curve
+        # rather than a list of independent verdicts.
+        families: dict[str, list] = {}
         for p in paths:
             if p.is_control:
                 continue
-            vals = [
-                by_run[RunSpec(env_name, algo, p.name, s).run_id][0] for s in range(args.seeds)
-            ]
-            n_failed = sum(1 for v in vals if band.failed(v))
-            verdict = "KEEP" if n_failed == args.seeds else (
-                "partial" if n_failed else "NO EFFECT"
-            )
-            drop = band.mean - float(np.mean(vals))
-            # str() first: a list has no __format__, and an f-string width spec on one raises.
-            vals_s = str(np.round(vals, 1).tolist())
-            print(
-                f"  {p.name:<24} {vals_s:<24} "
-                f"drop {drop:+8.2f}  {n_failed}/{args.seeds} below floor  [{verdict}]"
-            )
-            cell[p.name] = {
-                "values": vals,
-                "n_below_floor": n_failed,
-                "verdict": verdict,
-                "mean_drop_vs_control": drop,
-            }
+            families.setdefault(p.family, []).append(p)
+
+        for family in sorted(families):
+            levels = sorted(families[family], key=lambda p: p.severity)
+            print(f"  {family}")
+            for p in levels:
+                key = RunSpec(env_name, algo, p.name, 0).run_id
+                if key not in by_run:
+                    continue
+                vals = [
+                    by_run[RunSpec(env_name, algo, p.name, s).run_id][0]
+                    for s in range(args.seeds)
+                    if RunSpec(env_name, algo, p.name, s).run_id in by_run
+                ]
+                if not vals:
+                    continue
+                n_failed = sum(1 for v in vals if band.failed(v))
+                verdict = (
+                    "KEEP" if n_failed == len(vals)
+                    else ("partial" if n_failed else "no effect")
+                )
+                drop = band.mean - float(np.mean(vals))
+                dose = p.name.split("@", 1)[1] if "@" in p.name else "-"
+                # str() first: a list has no __format__, and a width spec on one raises.
+                vals_s = str(np.round(vals, 2).tolist())
+                print(
+                    f"      dose={dose:<10} {vals_s:<26} "
+                    f"drop {drop:+8.2f}  {n_failed}/{len(vals)}  [{verdict}]"
+                )
+                cell[p.name] = {
+                    "family": family,
+                    "severity": p.severity,
+                    "dose": dose,
+                    "values": vals,
+                    "n_below_floor": n_failed,
+                    "verdict": verdict,
+                    "mean_drop_vs_control": drop,
+                }
         report[f"{env_name}/{algo}"] = {
             "control": controls,
             "random_baseline": rand,

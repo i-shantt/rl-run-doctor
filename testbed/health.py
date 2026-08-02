@@ -124,12 +124,11 @@ def random_policy_return(env_name: str, env_kwargs: dict, n_episodes: int, seed:
     env = make(env_name, **env_kwargs)
     totals = []
     for s in eval_seeds(n_episodes):
-        obs = env.reset(seed=s)
+        env.reset(seed=s)
         total = 0.0
         for _ in range(env.max_steps):
             res = env.step(int(rng.integers(0, env.n_actions)))
             total += res.reward
-            obs = res.obs
             if res.terminated or res.truncated:
                 break
         totals.append(total)
