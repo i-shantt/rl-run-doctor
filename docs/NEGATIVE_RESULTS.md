@@ -146,6 +146,34 @@ targets do nothing at 5,000 and destroy the run at 20,000, with nothing in betwe
 **What is not claimed.** The false-alarm rate is 0.11–0.17 against a 0.05 target. With 15 control
 runs you cannot demonstrate a 5% false-alarm rate; the number reported is what the data supports.
 
+## Phase 2b — why the gap is closable for PPO and not for DQN
+
+Chasing the gap between the cliffs meant introducing ramped faults, which cross the measured cliff
+halfway through training and so produce a stretch where the setting is destructive but the return
+has not yet fallen.
+
+Before measuring lead time on them, one number decides how far this can go. How much of its own
+peak does a **healthy control** give back by the end of the run?
+
+| | control loss from peak, per seed | worst |
+|---|---|---|
+| CartPole / PPO | 0%, 0%, 7% | **7%** |
+| CartPole / DQN | 58%, 21%, 76% | **76%** |
+
+`R3_target_lag_ramp` — a run that degrades visibly and gradually, from a peak of 500 to a sustained
+100–170 — lost 75%. A healthy DQN control lost 76%.
+
+So no within-run collapse criterion can separate a gradually-failing DQN run from a healthy one at
+this scale, and it is not a labelling problem that a better threshold fixes: **DQN's own
+instability is larger than the fault's effect.** A healthy DQN run already looks broken. That is
+also why `R3` fails to cross the failure floor (windowed 123.4 against a floor of 115.3) despite
+having lost three quarters of its peak — the floor is dragged down by a control seed that behaved
+just as badly for no reason at all.
+
+For PPO the picture is the opposite: controls are effectively flat once converged, so any
+sustained fall is signal. Gradual-onset work is measurable there and not measurable on DQN, and
+the deciding factor is the algorithm rather than the injection design.
+
 ## Phase 3 — credit assignment
 
 **Prediction.** On `chain_rho`, GAE's per-step credit will correlate with exact credit at
