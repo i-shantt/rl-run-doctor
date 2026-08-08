@@ -6,6 +6,9 @@ on:
   pull_request:
 
 jobs:
+  # The full suite. Most test modules reach the testbed, and the testbed is torch-backed, so this
+  # job installs the testbed extra. Without it collection dies on `import torch` before a single
+  # test runs.
   test:
     runs-on: ubuntu-latest
     steps:
@@ -17,7 +20,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,analysis]"
+          pip install -e ".[dev,analysis,testbed]"
 
       - name: Lint
         run: ruff check src testbed scripts tests
@@ -26,15 +29,58 @@ jobs:
         run: pytest -q
 
       # The package is meant to install into someone else's training image. If importing it drags
-      # in a tensor library, that promise is broken, so this is asserted in a torch-free
-      # environment rather than trusted.
-      - name: Shipped package imports without torch
+      # in a tensor library, that promise is broken, so this is asserted rather than trusted.
+      #
+      # This has to run in the job where torch IS installed. Asserting it in a torch-free
+      # environment is vacuous -- the import could not have succeeded there whatever the package
+      # did, so the assertion cannot fail and proves nothing.
+      - name: Shipped package does not import torch when torch is available
         run: |
           python - <<'PY'
+          import importlib.util
           import sys
+
+          assert importlib.util.find_spec("torch") is not None, (
+              "torch is not installed, so this check would be vacuous -- it must run in the job "
+              "that installs the testbed extra"
+          )
           import rl_run_doctor
-          assert "torch" not in sys.modules, "rl_run_doctor pulled in torch"
+
           heavy = [m for m in ("torch", "tensorflow", "jax", "sklearn") if m in sys.modules]
           assert not heavy, f"unexpected heavy imports: {heavy}"
           print("clean:", rl_run_doctor.__version__)
           PY
+
+  # The other half of the same promise: the package has to *work* somewhere torch cannot be
+  # imported at all, not merely avoid importing it when it is present.
+  no-torch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install without the testbed extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Fail if torch got pulled in transitively
+        run: |
+          python - <<'PY'
+          import importlib.util
+
+          assert importlib.util.find_spec("torch") is None, (
+              "torch reached a dev install without the testbed extra -- something now depends on it"
+          )
+          print("torch absent, as intended")
+          PY
+
+      - name: Import and exercise the CLI with no tensor library present
+        run: |
+          python -c "import rl_run_doctor; print('imported:', rl_run_doctor.__version__)"
+          rl-run-doctor --help > /dev/null
+
+      - name: Run the torch-free tests
+        run: pytest -q tests/test_credit.py tests/test_leadtime.py
