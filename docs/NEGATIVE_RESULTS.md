@@ -228,3 +228,56 @@ diagnostic axis has nothing to measure and Phase 3 is dropped.
 
 **What would falsify it.** Every method scoring approximately the same against exact truth. That
 would mean the exact-credit environment does not discriminate, and the contribution evaporates.
+
+**Measured — falsified, and the exit condition fired.** 5 seeds x 5 densities x 3 training budgets
+x 200 episodes, `scripts/credit_study.py --vary-layout`, artifacts in `results/credit_study.*`.
+
+The best Spearman achieved by *any* estimator in *any* cell is **+0.199**, against a predicted
+>0.7. Every `gae(l=0.95)` cell is within noise of zero — the widest is +0.09 +/- 0.31, and the
+high-density anchor is +0.04 +/- 0.11. No method separates from any other, which is verbatim the
+falsifier, so credit attribution is dropped as a diagnostic axis.
+
+**Why: the estimators are the step index in disguise.** Scoring each estimator against the step
+index as a control is what makes the table readable, and it is conclusive:
+
+| estimator | rho vs step index (40k steps) | rho vs exact credit |
+|---|---|---|
+| `return_to_go(g=0.99)` | **+1.00** at every density | −0.08 .. +0.11 |
+| `gae(l=0.95)`          | **−1.00** at every density | −0.09 .. +0.08 |
+| `td0` / `gae(l=0.0)`   | +0.13 .. +0.32             | −0.12 .. +0.20 |
+
+`chain_rho` pays out only at the terminal step, and that single lump is what breaks both.
+Discounting it makes return-to-go exactly `R * g^(L-1-t)`, strictly monotone in `t`, so its rank
+correlation with the step index is +1.000 by construction rather than by measurement. GAE fails for
+a different reason: it sums the *remaining* future TD errors, so its window shrinks as `t` grows,
+which makes it strictly decreasing in `t` whichever way the critic's terminal estimate is biased.
+Neither ever consults which steps were causally relevant. Both are pinned analytically in
+`tests/test_credit.py`. The degeneracy *sharpens as the critic converges* — GAE's step-index
+correlation runs −0.47 (4k steps) → −0.99 (12k) → −1.00 (40k) — because a converged critic drives
+the TD errors toward zero and leaves nothing behind but the discount profile.
+
+Two hypotheses were tested against this and both are refuted, so neither should be retried:
+
+- *Partial observability.* The observation is `[t/L, is_decision, cue]` and omits the running
+  correct-count that the return depends on, so a critic can only represent the average over
+  histories. Appending that count moved GAE from +0.148 +/- 0.186 to +0.136 +/- 0.186 — nothing.
+  The env change was reverted.
+- *A dose–response in decision density.* There is no monotone trend in any estimator, at any
+  training budget.
+
+**A fixed layout manufactured all of it** — see the gotcha below. This is the one result here that
+would have been reported as a positive finding had the control not been run.
+
+### Gotcha: one layout, five seeds, and a confidence interval that means nothing
+
+The first full sweep held `layout_seed=0`, so all 75 runs shared one arrangement of decision steps
+and one cue sequence. It reported `gae(l=0.95)` at **+0.34 +/- 0.000** at rho=0.5 and +0.27 +/-
+0.006 at rho=0.25 — a clean, tight, monotone-looking dose–response, and the best result in the
+study. Drawing a fresh layout per seed collapses both to +0.05 +/- 0.21 and +0.08 +/- 0.29.
+
+The tell was the interval, not the estimate. Five independently-trained seeds agreeing to three
+decimals is not precision, it is the absence of variation: once the policy converges its
+trajectories are identical, and with the layout pinned there is nothing left for the seed to vary.
+Whether the fixed layout happened to place decision steps late or early in the episode set the sign
+of the correlation with the recency ranking, which is the entire effect. **A near-zero across-seed
+interval is evidence that the seed is not reaching the quantity, not that the quantity is precise.**
